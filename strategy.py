@@ -8,29 +8,21 @@ import numpy as np
 
 
 def strategy(df: pd.DataFrame) -> pd.Series:
-    """Long-only momentum + ADX/DI + BB + RSI dip-buying.
+    """Long-only momentum + ADX/DI + BB, SMA(200) trend filter.
 
-    Core: ROC(20) momentum with SMA50 trend + ADX/DI filter.
-    BB: Oversold bounce entries in uptrend.
-    RSI: Additional dip-buying when RSI < 40 in uptrend (not deeply oversold).
+    Change: Use SMA(200) instead of SMA(50) for more stable trend detection.
+    This should improve train/val consistency since 200-day trend is more robust.
     """
     close = df["close"]
     high = df["high"]
     low = df["low"]
 
-    # Trend filter
-    sma50 = close.rolling(50).mean()
-    trend_up = close > sma50
+    # Long-term trend filter
+    sma200 = close.rolling(200).mean()
+    trend_up = close > sma200
 
     # Momentum
     roc = close.pct_change(20)
-
-    # RSI(14)
-    delta = close.diff()
-    gain = delta.where(delta > 0, 0.0).rolling(14).mean()
-    loss = (-delta.where(delta < 0, 0.0)).rolling(14).mean()
-    rs = gain / loss.replace(0, np.nan)
-    rsi = 100 - (100 / (1 + rs))
 
     # Bollinger Bands (20, 2)
     bb_mid = close.rolling(20).mean()
@@ -60,14 +52,11 @@ def strategy(df: pd.DataFrame) -> pd.Series:
 
     signals = pd.Series(0, index=df.index)
 
-    # Primary: Long momentum with ADX/DI confirmation
+    # Long-only momentum with ADX/DI confirmation
     signals[trend_up & (roc > 0) & strong_trend & di_bullish] = 1
 
-    # BB oversold bounce
+    # BB oversold bounce in uptrend
     signals[trend_up & (close < bb_lower)] = 1
-
-    # RSI dip-buy: in uptrend, RSI pulls back to 30-40 zone
-    signals[trend_up & (rsi < 40) & (rsi > 25) & di_bullish] = 1
 
     return signals
 
