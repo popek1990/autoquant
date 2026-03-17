@@ -54,18 +54,14 @@ def strategy(df: pd.DataFrame) -> pd.Series:
     di_spread = plus_di - minus_di
     di_strong_bullish = di_spread > 12
     strong_trend = adx > 20
-    adx_rising = adx > adx.shift(3)  # ADX strengthening over 3 days
 
     signals = pd.Series(0, index=df.index)
 
-    # Primary: DI spread + uptrend + ADX rising & strong
-    signals[trend_up & strong_trend & di_strong_bullish & adx_rising] = 1
+    # Primary: DI spread + uptrend + ADX confirmation
+    signals[trend_up & strong_trend & di_strong_bullish] = 1
 
-    # Also enter when ADX is very strong (>30) even if not rising
-    signals[trend_up & (adx > 30) & di_strong_bullish] = 1
-
-    # BB oversold bounce in uptrend
-    signals[trend_up & (close < bb_lower)] = 1
+    # BB oversold bounce in uptrend with bullish DI
+    signals[trend_up & (close < bb_lower) & (di_spread > 0)] = 1
 
     # Go flat during extreme volatility
     signals[extreme_vol] = 0
