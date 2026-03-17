@@ -8,22 +8,22 @@ import numpy as np
 
 
 def strategy(df: pd.DataFrame) -> pd.Series:
-    """Momentum + BB + ADX trend strength filter.
+    """Momentum + BB + ADX with tuned parameters.
 
-    Core: ROC(20) momentum with SMA50 trend filter + BB mean reversion.
-    ADX: Only take momentum trades when trend is strong (ADX > 20).
+    Tuning: ADX threshold 25 (stricter), ROC(15) for faster signals,
+    SMA(40) for slightly faster trend detection.
     """
     close = df["close"]
     high = df["high"]
     low = df["low"]
 
-    # Trend filter
-    sma50 = close.rolling(50).mean()
-    trend_up = close > sma50
-    trend_down = close < sma50
+    # Trend filter (slightly faster)
+    sma40 = close.rolling(40).mean()
+    trend_up = close > sma40
+    trend_down = close < sma40
 
-    # Momentum
-    roc = close.pct_change(20)
+    # Momentum (shorter lookback)
+    roc = close.pct_change(15)
 
     # Bollinger Bands (20, 2)
     bb_mid = close.rolling(20).mean()
@@ -31,7 +31,7 @@ def strategy(df: pd.DataFrame) -> pd.Series:
     bb_upper = bb_mid + 2 * bb_std
     bb_lower = bb_mid - 2 * bb_std
 
-    # ADX(14) - trend strength
+    # ADX(14)
     plus_dm = high.diff()
     minus_dm = -low.diff()
     plus_dm = plus_dm.where((plus_dm > minus_dm) & (plus_dm > 0), 0.0)
@@ -49,7 +49,7 @@ def strategy(df: pd.DataFrame) -> pd.Series:
     dx = 100 * ((plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan))
     adx = dx.rolling(14).mean()
 
-    strong_trend = adx > 20
+    strong_trend = adx > 25  # Stricter threshold
 
     signals = pd.Series(0, index=df.index)
 
@@ -57,7 +57,7 @@ def strategy(df: pd.DataFrame) -> pd.Series:
     signals[trend_up & (roc > 0) & strong_trend] = 1
     signals[trend_down & (roc < 0) & strong_trend] = -1
 
-    # BB mean reversion (works in any regime)
+    # BB mean reversion
     signals[trend_up & (close < bb_lower)] = 1
     signals[trend_down & (close > bb_upper)] = -1
 
