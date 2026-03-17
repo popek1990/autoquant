@@ -19,12 +19,12 @@ def strategy(df: pd.DataFrame) -> pd.Series:
     low = df["low"]
 
     # Trend filter
-    sma60 = close.rolling(60).mean()
-    trend_up = close > sma60
-    trend_down = close < sma60
+    sma50 = close.rolling(50).mean()
+    trend_up = close > sma50
+    trend_down = close < sma50
 
-    # Momentum (longer lookback for stability)
-    roc = close.pct_change(30)
+    # Momentum
+    roc = close.pct_change(20)
 
     # Bollinger Bands (20, 2)
     bb_mid = close.rolling(20).mean()
@@ -56,13 +56,12 @@ def strategy(df: pd.DataFrame) -> pd.Series:
 
     signals = pd.Series(0, index=df.index)
 
-    # Momentum signals with ADX + DI confirmation
+    # Long-only momentum with ADX + DI confirmation
     signals[trend_up & (roc > 0) & strong_trend & di_bullish] = 1
-    signals[trend_down & (roc < 0) & strong_trend & di_bearish] = -1
+    # Flat (not short) when conditions not met
 
-    # BB mean reversion
+    # BB mean reversion (long only)
     signals[trend_up & (close < bb_lower)] = 1
-    signals[trend_down & (close > bb_upper)] = -1
 
     return signals
 
