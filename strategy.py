@@ -8,12 +8,15 @@ import numpy as np
 
 
 def strategy(df: pd.DataFrame) -> pd.Series:
-    """Momentum + Bollinger Band mean reversion hybrid.
+    """Momentum + Bollinger Bands + ATR volatility filter.
 
-    Primary signal: ROC(20) with SMA50 trend filter.
-    Override: Bollinger Band extremes trigger mean reversion.
+    Core: ROC(20) momentum with SMA50 trend filter.
+    BB: Mean reversion at Bollinger Band extremes.
+    ATR: Go flat during extreme volatility to reduce drawdown.
     """
     close = df["close"]
+    high = df["high"]
+    low = df["low"]
 
     # Trend filter
     sma50 = close.rolling(50).mean()
@@ -29,6 +32,17 @@ def strategy(df: pd.DataFrame) -> pd.Series:
     bb_upper = bb_mid + 2 * bb_std
     bb_lower = bb_mid - 2 * bb_std
 
+    # ATR(14) volatility filter
+    tr = pd.concat([
+        high - low,
+        (high - close.shift(1)).abs(),
+        (low - close.shift(1)).abs()
+    ], axis=1).max(axis=1)
+    atr = tr.rolling(14).mean()
+    atr_pct = atr / close  # ATR as % of price
+    atr_avg = atr_pct.rolling(50).mean()
+    high_vol = atr_pct > (atr_avg * 1.8)  # Extreme volatility
+
     signals = pd.Series(0, index=df.index)
 
     # Base momentum signals
@@ -36,14 +50,11 @@ def strategy(df: pd.DataFrame) -> pd.Series:
     signals[trend_down & (roc < 0)] = -1
 
     # Bollinger Band mean reversion overrides
-    # If price drops below lower band in uptrend, go long (oversold bounce)
     signals[trend_up & (close < bb_lower)] = 1
-    # If price rises above upper band in downtrend, go short (overbought reversal)
     signals[trend_down & (close > bb_upper)] = -1
 
-    # Exit signals: fade extreme positions
-    # Go flat when price returns to middle band against trend
-    signals[(~trend_up) & (close > bb_upper)] = -1
+    # Go flat during extreme volatility
+    signals[high_vol] = 0
 
     return signals
 
