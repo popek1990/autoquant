@@ -8,12 +8,11 @@ import numpy as np
 
 
 def strategy(df: pd.DataFrame) -> pd.Series:
-    """Long-only: DI-primary with ROC momentum, SMA50 trend + BB.
+    """Long-only: SMA50 + ADX/DI(12) + BB + volatility regime filter.
 
-    Rethink: Use DI as primary signal (not just filter).
-    Go long when +DI > -DI AND DI spread is significant.
-    SMA50 trend + ROC momentum as confirmation.
-    BB for dip-buying.
+    Core: SMA50 trend + ADX>20 + DI spread>12.
+    BB for dip-buying in uptrend.
+    Regime: Go flat when realized vol is extreme (> 2x median).
     """
     close = df["close"]
     high = df["high"]
@@ -23,13 +22,16 @@ def strategy(df: pd.DataFrame) -> pd.Series:
     sma50 = close.rolling(50).mean()
     trend_up = close > sma50
 
-    # Momentum
-    roc = close.pct_change(20)
-
     # Bollinger Bands (20, 2)
     bb_mid = close.rolling(20).mean()
     bb_std = close.rolling(20).std()
-    bb_lower = bb_mid - 1.5 * bb_std
+    bb_lower = bb_mid - 2 * bb_std
+
+    # Volatility regime: 20-day realized vol
+    daily_ret = close.pct_change()
+    vol20 = daily_ret.rolling(20).std()
+    vol_median = vol20.rolling(252).median()  # 1-year median vol
+    extreme_vol = vol20 > (vol_median * 2.0)
 
     # ADX(14) with DI
     plus_dm = high.diff()
@@ -49,19 +51,20 @@ def strategy(df: pd.DataFrame) -> pd.Series:
     dx = 100 * ((plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan))
     adx = dx.rolling(14).mean()
 
-    # DI spread: how much stronger is +DI vs -DI
     di_spread = plus_di - minus_di
-    di_strong_bullish = di_spread > 12  # Very strong bullish DI spread
-
+    di_strong_bullish = di_spread > 12
     strong_trend = adx > 20
 
     signals = pd.Series(0, index=df.index)
 
-    # Primary: Strong DI bullish spread + uptrend (no ROC requirement)
+    # Primary: DI spread + uptrend + ADX confirmation
     signals[trend_up & strong_trend & di_strong_bullish] = 1
 
     # BB oversold bounce in uptrend
     signals[trend_up & (close < bb_lower)] = 1
+
+    # Go flat during extreme volatility
+    signals[extreme_vol] = 0
 
     return signals
 
