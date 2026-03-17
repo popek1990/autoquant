@@ -8,26 +8,28 @@ import numpy as np
 
 
 def strategy(df: pd.DataFrame) -> pd.Series:
-    """SMA crossover with RSI filter for better entries."""
+    """Multi-timeframe momentum with SMA trend filter.
+
+    Uses 20-day rate of change for momentum signals,
+    confirmed by 50-day SMA trend direction.
+    Generates more trades while maintaining consistency.
+    """
     close = df["close"]
 
-    # Faster SMAs for more trades
-    fast_ma = close.rolling(10).mean()
-    slow_ma = close.rolling(30).mean()
+    # Trend filter: 50-day SMA direction
+    sma50 = close.rolling(50).mean()
+    trend_up = close > sma50
+    trend_down = close < sma50
 
-    # RSI(14) for overbought/oversold filtering
-    delta = close.diff()
-    gain = delta.where(delta > 0, 0.0).rolling(14).mean()
-    loss = (-delta.where(delta < 0, 0.0)).rolling(14).mean()
-    rs = gain / loss.replace(0, np.nan)
-    rsi = 100 - (100 / (1 + rs))
+    # Momentum: 20-day rate of change
+    roc = close.pct_change(20)
 
     signals = pd.Series(0, index=df.index)
 
-    # Long when fast > slow AND RSI not overbought (< 70)
-    signals[(fast_ma > slow_ma) & (rsi < 70)] = 1
-    # Short when fast < slow AND RSI not oversold (> 30)
-    signals[(fast_ma < slow_ma) & (rsi > 30)] = -1
+    # Long when price above SMA50 and positive momentum
+    signals[trend_up & (roc > 0)] = 1
+    # Short when price below SMA50 and negative momentum
+    signals[trend_down & (roc < 0)] = -1
 
     return signals
 
