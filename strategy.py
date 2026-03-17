@@ -8,16 +8,15 @@ import numpy as np
 
 
 def strategy(df: pd.DataFrame) -> pd.Series:
-    """Momentum + BB + ADX/DI + volume confirmation.
+    """Momentum + BB + ADX/DI + MACD confirmation.
 
     Core: ROC(20) momentum with SMA50 trend + ADX/DI directional filter.
-    Enhancement: Volume above average confirms signal strength.
+    MACD: Additional momentum confirmation via MACD histogram.
     BB mean reversion for range-bound markets.
     """
     close = df["close"]
     high = df["high"]
     low = df["low"]
-    volume = df["volume"]
 
     # Trend filter
     sma50 = close.rolling(50).mean()
@@ -27,9 +26,14 @@ def strategy(df: pd.DataFrame) -> pd.Series:
     # Momentum
     roc = close.pct_change(20)
 
-    # Volume confirmation: above 20-day average
-    vol_avg = volume.rolling(20).mean()
-    vol_confirm = volume > vol_avg
+    # MACD (12, 26, 9)
+    ema12 = close.ewm(span=12, adjust=False).mean()
+    ema26 = close.ewm(span=26, adjust=False).mean()
+    macd_line = ema12 - ema26
+    macd_signal = macd_line.ewm(span=9, adjust=False).mean()
+    macd_hist = macd_line - macd_signal
+    macd_bullish = macd_hist > 0
+    macd_bearish = macd_hist < 0
 
     # Bollinger Bands (20, 2)
     bb_mid = close.rolling(20).mean()
@@ -61,11 +65,11 @@ def strategy(df: pd.DataFrame) -> pd.Series:
 
     signals = pd.Series(0, index=df.index)
 
-    # Momentum + ADX/DI + volume confirmation
-    signals[trend_up & (roc > 0) & strong_trend & di_bullish & vol_confirm] = 1
-    signals[trend_down & (roc < 0) & strong_trend & di_bearish & vol_confirm] = -1
+    # Momentum + ADX/DI + MACD triple confirmation
+    signals[trend_up & (roc > 0) & strong_trend & di_bullish & macd_bullish] = 1
+    signals[trend_down & (roc < 0) & strong_trend & di_bearish & macd_bearish] = -1
 
-    # BB mean reversion (no volume filter needed)
+    # BB mean reversion
     signals[trend_up & (close < bb_lower)] = 1
     signals[trend_down & (close > bb_upper)] = -1
 
