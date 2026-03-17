@@ -52,8 +52,8 @@ def strategy(df: pd.DataFrame) -> pd.Series:
     adx = dx.rolling(14).mean()
 
     di_spread = plus_di - minus_di
-    di_strong_bullish = di_spread > 11
-    strong_trend = adx > 20
+    di_strong_bullish = di_spread > 12
+    strong_trend = adx > 18
 
     signals = pd.Series(0, index=df.index)
 
