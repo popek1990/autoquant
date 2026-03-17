@@ -8,28 +8,42 @@ import numpy as np
 
 
 def strategy(df: pd.DataFrame) -> pd.Series:
-    """Multi-timeframe momentum with SMA trend filter.
+    """Momentum + Bollinger Band mean reversion hybrid.
 
-    Uses 20-day rate of change for momentum signals,
-    confirmed by 50-day SMA trend direction.
-    Generates more trades while maintaining consistency.
+    Primary signal: ROC(20) with SMA50 trend filter.
+    Override: Bollinger Band extremes trigger mean reversion.
     """
     close = df["close"]
 
-    # Trend filter: 50-day SMA direction
+    # Trend filter
     sma50 = close.rolling(50).mean()
     trend_up = close > sma50
     trend_down = close < sma50
 
-    # Momentum: 20-day rate of change
+    # Momentum
     roc = close.pct_change(20)
+
+    # Bollinger Bands (20, 2)
+    bb_mid = close.rolling(20).mean()
+    bb_std = close.rolling(20).std()
+    bb_upper = bb_mid + 2 * bb_std
+    bb_lower = bb_mid - 2 * bb_std
 
     signals = pd.Series(0, index=df.index)
 
-    # Long when price above SMA50 and positive momentum
+    # Base momentum signals
     signals[trend_up & (roc > 0)] = 1
-    # Short when price below SMA50 and negative momentum
     signals[trend_down & (roc < 0)] = -1
+
+    # Bollinger Band mean reversion overrides
+    # If price drops below lower band in uptrend, go long (oversold bounce)
+    signals[trend_up & (close < bb_lower)] = 1
+    # If price rises above upper band in downtrend, go short (overbought reversal)
+    signals[trend_down & (close > bb_upper)] = -1
+
+    # Exit signals: fade extreme positions
+    # Go flat when price returns to middle band against trend
+    signals[(~trend_up) & (close > bb_upper)] = -1
 
     return signals
 
