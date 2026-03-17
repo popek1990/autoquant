@@ -8,29 +8,31 @@ import numpy as np
 
 
 def strategy(df: pd.DataFrame) -> pd.Series:
-    """Long-only: SMA50 + ADX/DI(12) + BB + volatility regime filter.
+    """Long-only: SMA50 + ADX/DI(12) + BB + vol filter + close vs SMA20 exit.
 
     Core: SMA50 trend + ADX>20 + DI spread>12.
     BB for dip-buying in uptrend.
-    Regime: Go flat when realized vol is extreme (> 2x median).
+    Vol filter: go flat in extreme volatility.
+    Enhancement: Use close < SMA20 as exit signal to lock in gains.
     """
     close = df["close"]
     high = df["high"]
     low = df["low"]
 
-    # Trend filter
+    # Trend filters
+    sma20 = close.rolling(20).mean()
     sma50 = close.rolling(50).mean()
     trend_up = close > sma50
 
     # Bollinger Bands (20, 2)
-    bb_mid = close.rolling(20).mean()
+    bb_mid = sma20
     bb_std = close.rolling(20).std()
     bb_lower = bb_mid - 2 * bb_std
 
-    # Volatility regime: 20-day realized vol
+    # Volatility regime
     daily_ret = close.pct_change()
     vol20 = daily_ret.rolling(20).std()
-    vol_median = vol20.rolling(252).median()  # 1-year median vol
+    vol_median = vol20.rolling(252).median()
     extreme_vol = vol20 > (vol_median * 2.0)
 
     # ADX(14) with DI
@@ -57,8 +59,14 @@ def strategy(df: pd.DataFrame) -> pd.Series:
 
     signals = pd.Series(0, index=df.index)
 
-    # Primary: DI spread + uptrend + ADX confirmation
+    # Primary: DI spread + uptrend + ADX
     signals[trend_up & strong_trend & di_strong_bullish] = 1
+
+    # BB oversold bounce in uptrend
+    signals[trend_up & (close < bb_lower)] = 1
+
+    # Exit when price drops below SMA20 (lock in gains)
+    signals[trend_up & (close < sma20) & ~(close < bb_lower)] = 0
 
     # Go flat during extreme volatility
     signals[extreme_vol] = 0
