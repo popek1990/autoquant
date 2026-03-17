@@ -102,6 +102,9 @@ Agent Fazy 1 nie miał tych danych. Ty masz. Klucze w `context`:
 | `CPI` | miesięczny | Inflacja | Rosnąca = Fed zaostrza = źle dla krypto. Reindex ffill do 4H |
 | `TREASURY_10Y` | dzienny | Yield 10Y | Rosnący yield = presja na ryzykowne aktywa. Kluczowy driver! |
 | `TREASURY_2Y` | dzienny | Yield 2Y | Yield curve (10Y-2Y). Inwersja = recesja = risk-off |
+| `FR_BTC_` | co 8h | Funding rate BTC | Ujemny = short squeeze blisko. Ekstremalnie pozytywny = rynek przegrzany |
+| `FR_ETH_` | co 8h | Funding rate ETH | Jak wyżej, per-asset |
+| `FR_SOL_` | co 8h | Funding rate SOL | Jak wyżej, per-asset |
 
 Przykład użycia makro:
 ```python
