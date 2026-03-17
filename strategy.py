@@ -53,12 +53,12 @@ def strategy(df: pd.DataFrame) -> pd.Series:
     di_spread = plus_di - minus_di
     di_strong_bullish = di_spread > 10  # Very strong bullish DI spread
 
-    strong_trend = adx > 25
+    strong_trend = adx > 20
 
     signals = pd.Series(0, index=df.index)
 
-    # Primary: Strong DI bullish spread + uptrend + positive momentum
-    signals[trend_up & (roc > 0) & strong_trend & di_strong_bullish] = 1
+    # Primary: Strong DI bullish spread + uptrend (no ROC requirement)
+    signals[trend_up & strong_trend & di_strong_bullish] = 1
 
     # BB oversold bounce in uptrend
     signals[trend_up & (close < bb_lower)] = 1
