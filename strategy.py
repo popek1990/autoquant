@@ -8,15 +8,16 @@ import numpy as np
 
 
 def strategy(df: pd.DataFrame) -> pd.Series:
-    """Momentum + BB + ADX + DI directional confirmation.
+    """Momentum + BB + ADX/DI + volume confirmation.
 
-    Core: ROC(20) momentum with SMA50 trend filter + BB mean reversion.
-    ADX: Only trade strong trends (ADX > 20).
-    DI: Use +DI/-DI to confirm direction matches signal.
+    Core: ROC(20) momentum with SMA50 trend + ADX/DI directional filter.
+    Enhancement: Volume above average confirms signal strength.
+    BB mean reversion for range-bound markets.
     """
     close = df["close"]
     high = df["high"]
     low = df["low"]
+    volume = df["volume"]
 
     # Trend filter
     sma50 = close.rolling(50).mean()
@@ -25,6 +26,10 @@ def strategy(df: pd.DataFrame) -> pd.Series:
 
     # Momentum
     roc = close.pct_change(20)
+
+    # Volume confirmation: above 20-day average
+    vol_avg = volume.rolling(20).mean()
+    vol_confirm = volume > vol_avg
 
     # Bollinger Bands (20, 2)
     bb_mid = close.rolling(20).mean()
@@ -56,11 +61,11 @@ def strategy(df: pd.DataFrame) -> pd.Series:
 
     signals = pd.Series(0, index=df.index)
 
-    # Momentum signals with ADX + DI confirmation
-    signals[trend_up & (roc > 0) & strong_trend & di_bullish] = 1
-    signals[trend_down & (roc < 0) & strong_trend & di_bearish] = -1
+    # Momentum + ADX/DI + volume confirmation
+    signals[trend_up & (roc > 0) & strong_trend & di_bullish & vol_confirm] = 1
+    signals[trend_down & (roc < 0) & strong_trend & di_bearish & vol_confirm] = -1
 
-    # BB mean reversion
+    # BB mean reversion (no volume filter needed)
     signals[trend_up & (close < bb_lower)] = 1
     signals[trend_down & (close > bb_upper)] = -1
 
