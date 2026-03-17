@@ -53,7 +53,7 @@ def strategy(df: pd.DataFrame) -> pd.Series:
     di_spread = plus_di - minus_di
     di_strong_bullish = di_spread > 10  # Very strong bullish DI spread
 
-    strong_trend = adx > 15
+    strong_trend = adx > 25
 
     signals = pd.Series(0, index=df.index)
 
