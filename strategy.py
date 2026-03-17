@@ -11,7 +11,7 @@ pd.set_option('future.no_silent_downcasting', True)
 from prepare import evaluate, plot_equity
 
 RESULTS_FILE = Path(__file__).parent / "results.tsv"
-OPIS = "dualMACD+ATR1.9+cd6+PT3+chikou"
+OPIS = "dualMACD_8_17+Ichimoku+EMA200+ATR1.9+cd6+PT3+chikou"
 
 
 # ─── Wskaźniki ───────────────────────────────────────────────────
