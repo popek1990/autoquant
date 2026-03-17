@@ -8,18 +8,20 @@ import numpy as np
 
 
 def strategy(df: pd.DataFrame) -> pd.Series:
-    """Long-only momentum + ADX/DI + BB, SMA(200) trend filter.
+    """Long-only: DI-primary with ROC momentum, SMA50 trend + BB.
 
-    Change: Use SMA(200) instead of SMA(50) for more stable trend detection.
-    This should improve train/val consistency since 200-day trend is more robust.
+    Rethink: Use DI as primary signal (not just filter).
+    Go long when +DI > -DI AND DI spread is significant.
+    SMA50 trend + ROC momentum as confirmation.
+    BB for dip-buying.
     """
     close = df["close"]
     high = df["high"]
     low = df["low"]
 
-    # Long-term trend filter
-    sma200 = close.rolling(200).mean()
-    trend_up = close > sma200
+    # Trend filter
+    sma50 = close.rolling(50).mean()
+    trend_up = close > sma50
 
     # Momentum
     roc = close.pct_change(20)
@@ -47,13 +49,16 @@ def strategy(df: pd.DataFrame) -> pd.Series:
     dx = 100 * ((plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan))
     adx = dx.rolling(14).mean()
 
+    # DI spread: how much stronger is +DI vs -DI
+    di_spread = plus_di - minus_di
+    di_strong_bullish = di_spread > 5  # Significant bullish DI spread
+
     strong_trend = adx > 20
-    di_bullish = plus_di > minus_di
 
     signals = pd.Series(0, index=df.index)
 
-    # Long-only momentum with ADX/DI confirmation
-    signals[trend_up & (roc > 0) & strong_trend & di_bullish] = 1
+    # Primary: Strong DI bullish spread + uptrend + positive momentum
+    signals[trend_up & (roc > 0) & strong_trend & di_strong_bullish] = 1
 
     # BB oversold bounce in uptrend
     signals[trend_up & (close < bb_lower)] = 1
