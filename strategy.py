@@ -26,7 +26,7 @@ ENSEMBLE_SEEDS_STABLE = [42, 271]           # 2 modele dla stabilnych (BTC, TAO)
 ENSEMBLE_SEEDS_MODERATE = [42, 271, 404]    # 3 modele dla umiarkowanych (ETH, SOL)
 ENSEMBLE_SEEDS_UNSTABLE = [42, 271, 404, 999, 137]  # 5 modeli dla XMR
 
-MODEL_RETRAIN_HOURS = 23  # retrenuj model jeśli starszy niż 23h
+MODEL_RETRAIN_HOURS = 168  # retrenuj model jeśli starszy niż 7 dni
 
 
 # ─── Wskaźniki ───────────────────────────────────────────────────
