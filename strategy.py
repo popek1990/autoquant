@@ -8,12 +8,11 @@ import numpy as np
 
 
 def strategy(df: pd.DataFrame) -> pd.Series:
-    """Long-only: SMA50 + ADX/DI(12) + BB + Keltner breakout + vol filter.
+    """Long-only: SMA50 + ADX/DI(12) + BB + tighter vol filter.
 
     Core: SMA50 trend + ADX>20 + DI spread>12.
     BB for dip-buying in uptrend.
-    Keltner: Extra long on breakout above upper channel.
-    Regime: Go flat when realized vol is extreme (> 2x median).
+    Regime: Go flat when realized vol is high (> 1.8x median).
     """
     close = df["close"]
     high = df["high"]
@@ -32,7 +31,7 @@ def strategy(df: pd.DataFrame) -> pd.Series:
     daily_ret = close.pct_change()
     vol20 = daily_ret.rolling(20).std()
     vol_median = vol20.rolling(252).median()  # 1-year median vol
-    extreme_vol = vol20 > (vol_median * 2.0)
+    extreme_vol = vol20 > (vol_median * 1.8)
 
     # ADX(14) with DI
     plus_dm = high.diff()
@@ -63,11 +62,6 @@ def strategy(df: pd.DataFrame) -> pd.Series:
 
     # BB oversold bounce in uptrend
     signals[trend_up & (close < bb_lower)] = 1
-
-    # Keltner Channel breakout: close above EMA20 + 1.5*ATR
-    ema20 = close.ewm(span=20, adjust=False).mean()
-    keltner_upper = ema20 + 1.5 * atr14
-    signals[trend_up & (close > keltner_upper) & strong_trend] = 1
 
     # Go flat during extreme volatility
     signals[extreme_vol] = 0
