@@ -8,24 +8,23 @@ import numpy as np
 
 
 def strategy(df: pd.DataFrame) -> pd.Series:
-    """SMA crossover + ADX/DI + BB mean reversion.
+    """Momentum + BB + ADX + DI directional confirmation.
 
-    Change: Replace ROC with SMA 10/50 crossover for momentum.
-    ADX/DI directional filter for consistency.
-    BB mean reversion for range-bound markets.
+    Core: ROC(20) momentum with SMA50 trend filter + BB mean reversion.
+    ADX: Only trade strong trends (ADX > 20).
+    DI: Use +DI/-DI to confirm direction matches signal.
     """
     close = df["close"]
     high = df["high"]
     low = df["low"]
 
-    # Dual SMA crossover for momentum + trend
-    sma10 = close.rolling(10).mean()
-    sma50 = close.rolling(50).mean()
-    trend_up = sma10 > sma50
-    trend_down = sma10 < sma50
-    # Momentum is implicitly encoded in the crossover
-    roc_dummy_pos = trend_up  # placeholder for same signal logic below
-    roc_dummy_neg = trend_down
+    # Trend filter
+    sma60 = close.rolling(60).mean()
+    trend_up = close > sma60
+    trend_down = close < sma60
+
+    # Momentum (longer lookback for stability)
+    roc = close.pct_change(30)
 
     # Bollinger Bands (20, 2)
     bb_mid = close.rolling(20).mean()
@@ -57,9 +56,9 @@ def strategy(df: pd.DataFrame) -> pd.Series:
 
     signals = pd.Series(0, index=df.index)
 
-    # SMA crossover signals with ADX + DI confirmation
-    signals[trend_up & strong_trend & di_bullish] = 1
-    signals[trend_down & strong_trend & di_bearish] = -1
+    # Momentum signals with ADX + DI confirmation
+    signals[trend_up & (roc > 0) & strong_trend & di_bullish] = 1
+    signals[trend_down & (roc < 0) & strong_trend & di_bearish] = -1
 
     # BB mean reversion
     signals[trend_up & (close < bb_lower)] = 1
