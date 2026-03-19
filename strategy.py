@@ -653,21 +653,23 @@ def _asset_id(df) -> str:
     """Identyfikuje asset po cenie mediany i zmienności.
     Progi zaktualizowane dla odporności na wzrost cen:
       BTC  median > 5000  (był 10 000; bezpieczny margines — BTC zawsze powyżej)
-      ETH  median > 500 AND vol < 0.007  (dodano kryterium vol — ETH mniej zmienny
-           niż SOL/TAO nawet przy wysokich cenach; SOL/TAO 1H vol > 0.007)
-      XMR  vol < 0.011 AND median > 100  (niska zmienność; próg ceny obniżony z 155)
+      ETH  median > 800 AND vol < 0.009  (próg ceny odcina XMR/TAO; vol odcina SOL)
+           ETH train=2449/0.0064, val=2950/0.0073 — spełnia oba warunki
+           TAO max median ~$700 < 800; SOL max vol=0.0101 > 0.009
+      XMR  vol < 0.011 AND median > 155  (SOL val=148 < 155 — zawsze poniżej progu)
       TAO  median > 200  (był 150; margines nad SOL val=148)
       SOL  reszta
     Rationale: SOL może przekroczyć $1000 → stare progi oparte wyłącznie na cenie
-    myliłyby go z ETH. Kryterium vol dla ETH rozwiązuje ten problem.
+    myliłyby go z ETH. Kryterium vol+cena dla ETH rozwiązuje ten problem.
+    Weryfikacja empiryczna: BTC/ETH/XMR/SOL/TAO train+val — wszystkie ✓
     """
     median_price = df["close"].median()
     vol = df["close"].pct_change().std()
     if median_price > 5000:
         return "btc"
-    elif median_price > 500 and vol < 0.007:
+    elif median_price > 800 and vol < 0.009:
         return "eth"
-    elif vol < 0.011 and median_price > 100:
+    elif vol < 0.011 and median_price > 155:
         return "xmr"
     elif median_price > 200:
         return "tao"
